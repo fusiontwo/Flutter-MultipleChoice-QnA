@@ -59,6 +59,8 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
+    - assets/prototype_img/prototype1.png
+    - assets/prototype_img/prototype2.png
     - assets/flower_img/pink_flower.png
     - assets/flower_img/top_right_leaf.png
     - assets/qna_button_img/q1a1.png
