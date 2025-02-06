@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ui_qna_module/widgets/vertical_img_text_button.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 class QnaScreen extends StatefulWidget {
   const QnaScreen({super.key});
@@ -13,8 +14,17 @@ class QnaScreen extends StatefulWidget {
 class _QnaScreenState extends State<QnaScreen> {
   Map<String, dynamic>? _data;
   int _currentQuestionIndex = 0;
-  final Map<int, int> _selectedAnswers = {}; // <질문 번호, 선택한 답변 번호>
+  final Map<int, int> _selectedAnswers = {}; 
 
+  // Example API Gateway URL
+  // final String apiGatewayUrl = 'https://your-api-id.execute-api.your-region.amazonaws.com/dev/qna';
+
+  // Real API Gateway URL
+  // final String apiGatewayUrl = 'http://3t0iiue1ct.execute-api.localhost.localstack.cloud:4566/dev/qna';
+
+  // Android Emulator API Gateway URL with localstack
+  final String apiGatewayUrl = 'http://10.0.2.2:4566/dev/qna';
+  
   @override
   void initState() {
     super.initState();
@@ -164,6 +174,44 @@ class _QnaScreenState extends State<QnaScreen> {
     });
   }
 
+  Future<void> _sendResponseToLambda() async {
+    var sortedAnswers = Map.fromEntries(
+      _selectedAnswers.entries.toList()
+        ..sort((e1, e2) => e1.key.compareTo(e2.key)),
+    );
+
+    var choiceResult = [];
+
+    if (_data != null) {
+      for (var entry in sortedAnswers.entries) {
+        var questionIndex = entry.key;
+        var answerIndex = entry.value;
+        var question = _data!['questions'][questionIndex];
+        var answer = question['answers'][answerIndex];
+        choiceResult.add({
+          'question': question['question'],
+          'answer': answer['text'],
+        });
+      }
+    }
+
+    debugPrint("선택된 답변 목록: $choiceResult");
+
+    var response = await http.post(
+      Uri.parse(apiGatewayUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'choice_result': choiceResult,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      print('Response from Lambda: ${response.body}');
+    } else {
+      print('Failed to send data to Lambda');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -205,25 +253,7 @@ class _QnaScreenState extends State<QnaScreen> {
                   )
                 else
                   ElevatedButton(
-                    onPressed: () {
-                      var sortedAnswers = Map.fromEntries(
-                      _selectedAnswers.entries.toList()
-                          ..sort((e1, e2) => e1.key.compareTo(e2.key)),
-                      );
-                      
-                      debugPrint("최종 선택된 답변 리스트(질문 인덱스 : 답변 인덱스): $sortedAnswers");
-
-                      if (_data != null) {
-                        for (var entry in sortedAnswers.entries) {
-                          var questionIndex = entry.key;
-                          var answerIndex = entry.value;
-                          var question = _data!['questions'][questionIndex];
-                          var answer = question['answers'][answerIndex];
-
-                          debugPrint("질문: ${question['question']}, 선택된 답변: ${answer['text']}");
-                        }
-                      }
-                    },
+                    onPressed: _sendResponseToLambda,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.yellow[200],
                       foregroundColor: Colors.black, 
