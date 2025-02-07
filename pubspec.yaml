@@ -35,6 +35,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   http: ^1.3.0
+  provider: ^6.1.2
 
 dev_dependencies:
   flutter_test:
@@ -74,8 +75,14 @@ flutter:
     - assets/qna_button_img/q2a4.png
     - assets/qna_button_img/q3a1.png
     - assets/qna_button_img/q3a2.png
-    - assets/qna_button_img/q3a3.png
-    - assets/qna_button_img/q3a4.png    
+    - assets/qna_button_img/q4a1.png
+    - assets/qna_button_img/q4a2.png
+    - assets/qna_button_img/q4a3.png
+    - assets/qna_button_img/q4a4.png
+    - assets/qna_button_img/q5a1.png
+    - assets/qna_button_img/q5a2.png
+    - assets/qna_button_img/q5a3.png
+    - assets/qna_button_img/q5a4.png
     - assets/qna_button_img/temporary_img.png
     - assets/qna_content.json
 

@@ -15,16 +15,13 @@ class _QnaScreenState extends State<QnaScreen> {
   Map<String, dynamic>? _data;
   int _currentQuestionIndex = 0;
   final Map<int, int> _selectedAnswers = {}; 
-
-  // Example API Gateway URL
-  // final String apiGatewayUrl = 'https://your-api-id.execute-api.your-region.amazonaws.com/dev/qna';
+  final Map<int, String> _subjectiveAnswers = {};
 
   // Real API Gateway URL
-  // final String apiGatewayUrl = 'http://3t0iiue1ct.execute-api.localhost.localstack.cloud:4566/dev/qna';
+  final String apiGatewayUrl = 'https://{apigateway-api-id}.execute-api.ap-northeast-2.amazonaws.com/default/gpt-api-lambda';
 
-  // Android Emulator API Gateway URL with localstack
-  final String apiGatewayUrl = 'http://10.0.2.2:4566/dev/qna';
-  
+  late BuildContext dialogContext;
+
   @override
   void initState() {
     super.initState();
@@ -60,7 +57,7 @@ class _QnaScreenState extends State<QnaScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            "10개 중 ${_currentQuestionIndex + 1}번째 질문",
+            "18개 중 ${_currentQuestionIndex + 1}번째 질문",
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -70,46 +67,50 @@ class _QnaScreenState extends State<QnaScreen> {
           ),
         ),
         const SizedBox(height: 25),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.cyan),
-              ),
-              child: Text(
-                question['question'],
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
+        Padding(
+          padding: const EdgeInsets.only(left: 35, right: 35),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.cyan),
                 ),
-                textAlign: TextAlign.center,
+                child: Text(
+                  question['question'],
+                  style: TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
-            ),
-            Positioned(
-              top: -20,
-              left: -10,
-              child: Image.asset(
-                "assets/flower_img/pink_flower.png",
-                width: 50,
-                height: 50,
+              Positioned(
+                top: -20,
+                left: -10,
+                child: Image.asset(
+                  "assets/flower_img/pink_flower.png",
+                  width: 50,
+                  height: 50,
+                ),
               ),
-            ),
-            Positioned(
-              top: -20,
-              right: -10,
-              child: Image.asset(
-                "assets/flower_img/top_right_leaf.png",
-                width: 50,
-                height: 50,
+              Positioned(
+                top: -20,
+                right: -10,
+                child: Image.asset(
+                  "assets/flower_img/top_right_leaf.png",
+                  width: 50,
+                  height: 50,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         Container(
           padding: const EdgeInsets.all(20),
+          height: 370,
           child: GridView.builder(
             shrinkWrap: true,
             physics: NeverScrollableScrollPhysics(),
@@ -128,7 +129,7 @@ class _QnaScreenState extends State<QnaScreen> {
                   Align(
                     alignment: Alignment.center,
                     child: verticalImageTextButton(
-                      imagePath: _currentQuestionIndex <= 2
+                      imagePath: _currentQuestionIndex <= 4
                         ? 'assets/qna_button_img/q${_currentQuestionIndex + 1}${answer['id'].toLowerCase()}.png'
                         : 'assets/qna_button_img/temporary_img.png',
                       buttonText: answer['text'],
@@ -156,6 +157,24 @@ class _QnaScreenState extends State<QnaScreen> {
             },
           ),
         ),
+
+        if (_subjectiveAnswers.containsKey(_currentQuestionIndex))
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.yellow[200],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                _subjectiveAnswers[_currentQuestionIndex] ?? '',
+                style: TextStyle(fontSize: 14, color: Colors.black),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -172,6 +191,29 @@ class _QnaScreenState extends State<QnaScreen> {
         }
       }
     });
+  }
+
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, 
+      builder: (BuildContext context) {
+        dialogContext = context; 
+        return AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Text("AI 건강비서가 분석을 진행중입니다.\n잠시만 기다려주세요 🤗"),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _hideLoadingDialog() {
+    Navigator.of(dialogContext).pop();
   }
 
   Future<void> _sendResponseToLambda() async {
@@ -193,9 +235,18 @@ class _QnaScreenState extends State<QnaScreen> {
           'answer': answer['text'],
         });
       }
+
+      _subjectiveAnswers.forEach((questionIndex, subjectiveAnswer) {
+        choiceResult.add({
+          'question': _data!['questions'][questionIndex]['question'],
+          'answer': subjectiveAnswer,
+        });
+      });
     }
 
     debugPrint("선택된 답변 목록: $choiceResult");
+
+    _showLoadingDialog();
 
     var response = await http.post(
       Uri.parse(apiGatewayUrl),
@@ -205,11 +256,121 @@ class _QnaScreenState extends State<QnaScreen> {
       }),
     );
 
+    _hideLoadingDialog();
+
     if (response.statusCode == 200) {
       print('Response from Lambda: ${response.body}');
+      if (mounted) {
+        _showResponseDialog(response.body);
+      }
     } else {
-      print('Failed to send data to Lambda');
+      print('Failed to send data to Lambda. Status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
     }
+  }
+
+  void _showResponseDialog(String responseBody) {
+    Map<String, dynamic> jsonResponse = json.decode(responseBody);
+    String analysisText = jsonResponse['analysis'];
+    String result = analysisText.replaceAll(r'\n', '\n');
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          backgroundColor: Colors.white,
+          title: Row(
+            children: [
+              Image.asset(
+                'assets/flower_img/pink_flower.png',
+                width: 50,
+                height: 50,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'AI 분석 결과',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange,
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.orange, width: 2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                result,
+                style: TextStyle(fontSize: 16, color: Colors.black),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                '확인',
+                style: TextStyle(fontSize: 18, color: Colors.orange),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showSubjectiveAnswerDialog() {
+    TextEditingController controller = TextEditingController();
+    controller.text = _subjectiveAnswers[_currentQuestionIndex] ?? '';  // 이전 값 불러오기
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        Future.delayed(Duration(milliseconds: 100), () {
+          FocusScope.of(context).requestFocus(FocusNode());
+        });
+
+        return AlertDialog(
+          title: Text("기타 답변 입력"),
+          content: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0), // 좌우 패딩 추가
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(hintText: "답변을 입력해주세요."),
+              maxLines: 3,
+              autofocus: true,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _subjectiveAnswers[_currentQuestionIndex] = controller.text; // 답변 저장
+                });
+                Navigator.of(context).pop();
+              },
+              child: Text("저장"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("취소"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -241,7 +402,7 @@ class _QnaScreenState extends State<QnaScreen> {
                   SizedBox(width: 70),
 
                 const SizedBox(width: 40),
-                if (_currentQuestionIndex < 9)
+                if (_currentQuestionIndex < 17)
                   Row(
                     children: [
                       Text("다음", style: TextStyle(fontSize: 16, color: Colors.black)),
@@ -268,6 +429,11 @@ class _QnaScreenState extends State<QnaScreen> {
             )
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showSubjectiveAnswerDialog,
+        child: Icon(Icons.edit),
+        backgroundColor: Colors.orange,
       ),
       bottomNavigationBar: NavigationBar(
         destinations: const [
